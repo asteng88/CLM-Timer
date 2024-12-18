@@ -1,12 +1,11 @@
 import tkinter as tk
 from tkinter import font
-import time
 from tkinter import ttk
 import math
 from turtle import color
 import os
 from PIL import Image, ImageTk
-import pygame  # Add this import for sound playback
+import pygame # Used for sound playback
 
 class MultiTimerApp:
     def __init__(self, master):
@@ -30,9 +29,9 @@ class MultiTimerApp:
         
         # Create dropdown for number of timers
         self.timer_count = tk.StringVar()
-        self.timer_count.set("10")  # Set default to 10
-        self.dropdown = ttk.Combobox(top_frame, textvariable=self.timer_count, values=[str(i) for i in range(1, 16)])
-        self.dropdown.pack(side=tk.LEFT, padx=(10, 0))
+        self.timer_count.set("9")  # Set default to 9
+        self.dropdown = ttk.Combobox(top_frame, textvariable=self.timer_count, values=[str(i) for i in range(7, 10)])
+        self.dropdown.pack(side=tk.LEFT, padx=(15, 0))
         self.dropdown.bind("<<ComboboxSelected>>", self.update_timers)
         
         # Create bell button
@@ -41,10 +40,10 @@ class MultiTimerApp:
             bell_icon = Image.open(bell_icon_path)
             bell_icon = bell_icon.resize((24, 24), Image.LANCZOS)
             bell_icon = ImageTk.PhotoImage(bell_icon)
-            self.bell_button = tk.Button(top_frame, image=bell_icon, command=self.play_bell_sound)
+            self.bell_button = tk.Button(top_frame, image=bell_icon, command=self.play_bell_sound, bg='red')
             self.bell_button.image = bell_icon
         else:
-            self.bell_button = tk.Button(top_frame, text="🔔", command=self.play_bell_sound)
+            self.bell_button = tk.Button(top_frame, text="🔔", command=self.play_bell_sound, bg='red')
         self.bell_button.pack(side=tk.RIGHT, padx=(0, 10))
         
         # Initialize pygame mixer for sound
@@ -61,9 +60,27 @@ class MultiTimerApp:
             print(f"Warning: Bell sound file not found at {bell_sound_path}")
             self.bell_sound = None
         
-        # Frame to hold rows of timers
-        self.timer_frame = tk.Frame(master)
-        self.timer_frame.pack(expand=True, fill=tk.BOTH)
+        # Create canvas with scrollbars
+        self.canvas = tk.Canvas(master)
+        self.scrollbar_y = ttk.Scrollbar(master, orient="vertical", command=self.canvas.yview)
+        self.scrollbar_x = ttk.Scrollbar(master, orient="horizontal", command=self.canvas.xview)
+        self.timer_frame = tk.Frame(self.canvas)
+
+        # Configure canvas
+        self.canvas.configure(yscrollcommand=self.scrollbar_y.set, xscrollcommand=self.scrollbar_x.set)
+        
+        # Pack scrollbars and canvas
+        self.scrollbar_y.pack(side="right", fill="y")
+        self.scrollbar_x.pack(side="bottom", fill="x")
+        self.canvas.pack(side="left", fill="both", expand=True)
+        
+        # Create window inside canvas
+        self.canvas_frame = self.canvas.create_window((0, 0), window=self.timer_frame, anchor="nw")
+        
+        # Bind events
+        self.timer_frame.bind("<Configure>", self.on_frame_configure)
+        self.canvas.bind("<Configure>", self.on_canvas_configure)
+        self.master.bind("<Configure>", self.on_window_resize)
         
         # Initial timers (10 by default)
         self.default_titles = [
@@ -73,13 +90,34 @@ class MultiTimerApp:
             "Student Talk 1",
             "Student Talk 2",
             "Student Talk 3",
-            "Student Talk 4",
-            "LAC Talk 1",
-            "LAC Talk 2",
+            "LAC Part 1",
+            "LAC Part 2",
             "Bible Study - 30m"
         ]
-        for i in range(10):
+        for i in range(9):
             self.add_timer(self.default_titles[i])
+
+        # Set initial window size based on number of rows
+        timer_count = len(self.timers)
+        cols = min(3, timer_count)  # Max 3 columns
+        rows = math.ceil(timer_count / cols)
+        
+        # Calculate window dimensions
+        window_width = cols * 160  # space for 3 timers per row
+        window_height = rows * 150  # space for 3 timers per column
+        
+        # Get screen dimensions
+        screen_width = self.master.winfo_screenwidth()
+        screen_height = self.master.winfo_screenheight()
+        
+        # Ensure window isn't larger than screen
+        window_width = min(window_width, screen_width - 100)
+        window_height = min(window_height, screen_height - 100)
+        
+        # Set window size and position it at center
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+        self.master.geometry(f"{window_width}x{window_height}+{x}+{y}")
     
     def play_bell_sound(self):
         if self.bell_sound:
@@ -90,41 +128,109 @@ class MultiTimerApp:
         count = int(self.timer_count.get())
         current_count = len(self.timers)
         
-        if count > current_count:
-            for i in range(current_count, count):
-                title = self.default_titles[i] if i < len(self.default_titles) else f"CLM Part {i+1}"
-                self.add_timer(title)
-        elif count < current_count:
-            for timer in self.timers[count:]:
+        if count == 8:
+            # Special handling for 8 timers
+            # Save Bible Study timer if it exists
+            bible_study_timer = self.timers[-1] if self.timers else None
+            
+            # Remove all existing timers
+            for timer in self.timers[:]:
                 timer.destroy()
-            self.timers = self.timers[:count]
+            self.timers.clear()
+            
+            # Add the specific 8 timer configuration
+            titles = [
+                "Treasures Talk - 10m",
+                "Spiritual Gems - 10m",
+                "Bible Reading - 4m",
+                "Student Talk 1",
+                "Student Talk 2",
+                "Student Talk 3",
+                "LAC Part 1",
+                "Bible Study - 30m"
+            ]
+            for title in titles:
+                self.add_timer(title)
+                
+        elif count == 7:
+            # Special handling for 7 timers
+            bible_study_timer = self.timers[-1] if self.timers else None
+            
+            # Remove all existing timers
+            for timer in self.timers[:]:
+                timer.destroy()
+            self.timers.clear()
+            
+            # Add the specific 7 timer configuration
+            titles = [
+                "Treasures Talk - 10m",
+                "Spiritual Gems - 10m",
+                "Bible Reading - 4m",
+                "Student Talk 1",
+                "Student Talk 2",
+                "LAC Part 1",
+                "Bible Study - 30m"
+            ]
+            for title in titles:
+                self.add_timer(title)
+                
+        elif count == 9:
+            # Special handling for 9 timers
+            bible_study_timer = self.timers[-1] if self.timers else None
+            
+            # Remove all existing timers
+            for timer in self.timers[:]:
+                timer.destroy()
+            self.timers.clear()
+            
+            # Add all default titles
+            for title in self.default_titles:
+                self.add_timer(title)
         
         self.arrange_timers()
-    
+
     def add_timer(self, title):
         timer = TimerWidget(self.timer_frame, title, self.timer_font)
         self.timers.append(timer)
         self.arrange_timers()
     
+    def on_frame_configure(self, event=None):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def on_canvas_configure(self, event):
+        # Update the width of the canvas window when the canvas is resized
+        canvas_width = event.width
+        self.canvas.itemconfig(self.canvas_frame, width=canvas_width)
+        self.arrange_timers()
+
+    def on_window_resize(self, event=None):
+        # Only handle if it's the main window being resized
+        if event.widget == self.master:
+            self.arrange_timers()
+
     def arrange_timers(self):
         for timer in self.timers:
-            timer.pack_forget()
+            timer.grid_forget()
         
-        count = len(self.timers)
-        if count <= 5:
-            rows = 1
-            cols = count
-        elif count <= 10:
-            rows = 2
-            cols = math.ceil(count / 2)
-        else:
-            rows = 3
-            cols = math.ceil(count / 3)
+        if not self.timers:
+            return
+
+        # Get available width and calculate how many timers can fit per row
+        canvas_width = self.canvas.winfo_width()
+        timer_width = 130  # Approximate width of each timer widget
+        padding = 20  # Total horizontal padding between timers
+        
+        cols = max(1, canvas_width // (timer_width + padding))
+        rows = math.ceil(len(self.timers) / cols)
         
         for i, timer in enumerate(self.timers):
             row = i // cols
             col = i % cols
-            timer.grid(row=row, column=col, padx=10, pady=10)
+            timer.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+            
+        # Configure grid columns to be equal width
+        for i in range(cols):
+            self.timer_frame.grid_columnconfigure(i, weight=1)
 
 class TimerWidget(tk.Frame):
     def __init__(self, parent, title, timer_font):
